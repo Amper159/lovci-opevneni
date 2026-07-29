@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lovci Opevnění | Mapa řopíků a tvrzí</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --bg-dark: #191c1a;
+            --panel-bg: #222724;
+            --card-bg: #2a302c;
+            --accent-green: #4f6d52;
+            --accent-green-bright: #4ade80;
+            --accent-orange: #d97736;
+            --text-light: #e0e6e3;
+            --text-muted: #94a3b8;
+            --border: #363e38;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-right: 2px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.6);
+        }
+
+        .header {
+            padding: 15px 20px;
+            background-color: #121513;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 { font-size: 1.2rem; color: var(--accent-orange); letter-spacing: 1px; }
+
+        /* Záložky (Seznam / Žebříček) */
+        .tabs {
+            display: flex;
+            background: #171b19;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-orange);
+            border-bottom: 2px solid var(--accent-orange);
+            background: var(--panel-bg);
+        }
+
+        .user-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 12px 20px;
+            background-color: rgba(0,0,0,0.25);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value { font-size: 1.1rem; font-weight: bold; color: var(--accent-orange); }
+        .stat-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+
+        .controls {
+            padding: 12px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        input, select, button, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            border-radius: 5px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-green);
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+
+        .tab-content { display: none; flex: 1; overflow-y: auto; padding: 15px 20px; }
+        .tab-content.active { display: flex; flex-direction: column; gap: 10px; }
+
+        .object-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+
+        .object-card.visited { border-left: 4px solid var(--accent-green-bright); }
+        .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+        .badge-ropik { background-color: var(--accent-green); color: #fff; }
+        .badge-srub { background-color: #8c3a3a; color: #fff; }
+        .badge-tvrz { background-color: var(--accent-orange); color: #fff; }
+
+        /* Žebříček */
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: var(--card-bg);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .leader-rank { font-weight: bold; width: 30px; color: var(--accent-orange); }
+        .leader-name { flex: 1; font-weight: 600; }
+        .leader-score { font-weight: bold; color: var(--accent-green-bright); }
+
+        #map { flex: 1; height: 100vh; background-color: #111; }
+
+        /* Styly pro popup okno Leafletu */
+        .leaflet-popup-content-wrapper {
+            background: #1e2321 !important;
+            color: #e0e6e3 !important;
+            border: 1px solid #3f4a43;
+            border-radius: 8px !important;
+        }
+
+        .leaflet-popup-tip { background: #1e2321 !important; }
+
+        .nav-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            margin-top: 6px;
+            margin-right: 4px;
+            font-size: 0.78rem;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .nav-btn:hover { opacity: 0.85; }
+        .nav-car { background-color: #2563eb; }
+        .nav-walk { background-color: #16a34a; }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); z-index: 2000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: var(--panel-bg); padding: 25px; border-radius: 8px; width: 400px;
+            border: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="header">
+            <h1>🛡️ LOVCI OPEVNĚNÍ</h1>
+            <div id="auth-status" style="font-size: 0.8rem;">
+                <a href="#" onclick="openAuthModal()" style="color: var(--accent-orange);">Přihlásit</a>
+            </div>
+        </div>
+
+        <div class="user-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="user-score">0</div>
+                <div class="stat-label">Moje Odlovy</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="user-rank">Vojín</div>
+                <div class="stat-label">Hodnost</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('objects')">📍 Objekty</button>
+            <button class="tab-btn" onclick="switchTab('leaderboard')">🏆 Žebříček</button>
+        </div>
+
+        <!-- TAB OBJEKTY -->
+        <div class="controls" id="objects-controls">
+            <input type="text" id="search" placeholder="Hledat (Signál, MO-S...)...">
+            <div style="display: flex; gap: 5px;">
+                <select id="type-filter">
+                    <option value="all">Všechny typy</option>
+                    <option value="ropik">Řopíky</option>
+                    <option value="srub">Sruby</option>
+                    <option value="tvrz">Tvrze</option>
+                </select>
+                <select id="status-filter">
+                    <option value="all">Všechny</option>
+                    <option value="visited">Odlovené</option>
+                    <option value="unvisited">Neodlovené</option>
+                </select>
+            </div>
+            <button onclick="findMyLocation()" style="background: var(--card-bg); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--text-light);">
+                🎯 Moje poloha
+            </button>
+        </div>
+
+        <div class="tab-content active" id="tab-objects"></div>
+
+        <!-- TAB ŽEBŘÍČEK -->
+        <div class="tab-content" id="tab-leaderboard">
+            <div id="leaderboard-list">Načítám žebříček...</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- AUTH MODAL -->
+    <div class="modal" id="auth-modal">
+        <div class="modal-content">
+            <h3 style="color: var(--accent-orange);">Přihlášení Lovce</h3>
+            <input type="text" id="auth-username" placeholder="Uživatelské jméno">
+            <input type="password" id="auth-password" placeholder="Heslo">
+            <button class="btn-primary" onclick="submitLogin()">Přihlásit se</button>
+            <button class="btn-primary" style="background: var(--card-bg);" onclick="submitRegister()">Registrovat</button>
+            <button onclick="closeAuthModal()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer;">Zavřít</button>
+        </div>
+    </div>
+
+    <!-- ODLOV MODAL -->
+    <div class="modal" id="odlov-modal">
+        <div class="modal-content">
+            <h3 id="odlov-title" style="color: var(--accent-orange);">Odlovit objekt</h3>
+            <input type="hidden" id="odlov-id">
+            <textarea id="odlov-poznamka" placeholder="Poznámka z místa..." rows="3"></textarea>
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Přidat fotku:</label>
+            <input type="file" id="odlov-foto" accept="image/*">
+            <button class="btn-primary" onclick="submitOdlov()">Zapsat odlov 🚩</button>
+            <button onclick="closeOdlovModal()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer;">Zrušit</button>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([49.8, 15.5], 8);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO',
+            maxZoom: 19
+        }).addTo(map);
+
+        const markersGroup = L.featureGroup().addTo(map);
+        let vsechnyObjekty = [];
+        let isLoggedIn = false;
+        let myLocationMarker = null;
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (tabName === 'objects') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tab-objects').classList.add('active');
+                document.getElementById('objects-controls').style.display = 'flex';
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tab-leaderboard').classList.add('active');
+                document.getElementById('objects-controls').style.display = 'none';
+                loadLeaderboard();
+            }
+        }
+
+        function checkStats() {
+            fetch('/api/stats')
+                .then(r => r.json())
+                .then(data => {
+                    isLoggedIn = data.logged_in;
+                    if (data.logged_in) {
+                        document.getElementById('auth-status').innerHTML = `${data.jmeno} (<a href="#" onclick="logout()" style="color:#ef4444;">Odhlaš</a>)`;
+                        document.getElementById('user-score').textContent = data.odloveno;
+                        document.getElementById('user-rank').textContent = data.hodnost;
+                    } else {
+                        document.getElementById('auth-status').innerHTML = `<a href="#" onclick="openAuthModal()" style="color: var(--accent-orange);">Přihlásit</a>`;
+                        document.getElementById('user-score').textContent = '0';
+                        document.getElementById('user-rank').textContent = 'Vojín';
+                    }
+                });
+        }
+
+        function loadObjekty() {
+            fetch('/api/objekty')
+                .then(res => res.json())
+                .then(data => {
+                    vsechnyObjekty = data;
+                    aplikujFiltry();
+                })
+                .catch(err => console.error('Chyba pri nacitani objektu:', err));
+        }
+
+        function loadLeaderboard() {
+            fetch('/api/leaderboard').then(res => res.json()).then(data => {
+                const list = document.getElementById('leaderboard-list');
+                list.innerHTML = '';
+                data.forEach((user, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'leader-item';
+                    item.innerHTML = `
+                        <span class="leader-rank">#${index + 1}</span>
+                        <div style="display:flex; flex-direction:column;">
+                            <span class="leader-name">${user.jmeno}</span>
+                            <span style="font-size:0.7rem; color:var(--text-muted);">${user.hodnost}</span>
+                        </div>
+                        <span class="leader-score">${user.pocet} 🚩</span>
+                    `;
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        function aplikujFiltry() {
+            const query = document.getElementById('search').value.toLowerCase().trim();
+            const selectedType = document.getElementById('type-filter').value;
+            const selectedStatus = document.getElementById('status-filter').value;
+
+            const filtrovane = vsechnyObjekty.filter(obj => {
+                const matchQuery = obj.nazev.toLowerCase().includes(query) || (obj.popis && obj.popis.toLowerCase().includes(query));
+                const matchType = selectedType === 'all' || obj.typ === selectedType;
+                let matchStatus = true;
+                if (selectedStatus === 'visited') matchStatus = obj.navstiveno === 1;
+                if (selectedStatus === 'unvisited') matchStatus = obj.navstiveno === 0;
+                return matchQuery && matchType && matchStatus;
+            });
+
+            vykresli(filtrovane);
+        }
+
+        function vykresli(objekty) {
+            markersGroup.clearLayers();
+            const listEl = document.getElementById('tab-objects');
+            listEl.innerHTML = '';
+
+            objekty.forEach(obj => {
+                const color = obj.navstiveno ? '#4ade80' : (obj.typ === 'srub' ? '#8c3a3a' : (obj.typ === 'tvrz' ? '#d97736' : '#4f6d52'));
+                
+                const marker = L.circleMarker([obj.lat, obj.lon], {
+                    radius: obj.navstiveno ? 7 : 5,
+                    fillColor: color,
+                    color: obj.navstiveno ? '#ffffff' : '#000000',
+                    weight: obj.navstiveno ? 2 : 1,
+                    fillOpacity: 0.9
+                });
+
+                // Google Maps navigační odkaz
+                const gMapsCarUrl = `https://www.google.com/maps/dir/?api=1&destination=${obj.lat},${obj.lon}&travelmode=driving`;
+                const gMapsWalkUrl = `https://www.google.com/maps/dir/?api=1&destination=${obj.lat},${obj.lon}&travelmode=walking`;
+
+                let popup = `
+                    <div style="color: #e0e6e3; min-width: 200px; max-width: 250px;">
+                        <h3 style="margin:0 0 4px 0; color: #d97736; font-size: 1.05rem;">${obj.nazev}</h3>
+                        <p style="margin:0 0 8px 0; font-size: 0.85rem; color: #94a3b8;"><strong>Typ:</strong> <span style="color:#fff;">${obj.typ.toUpperCase()}</span></p>
+                `;
+
+                // Obrázek zobrazíme POUZE tehdy, pokud má uživatel nahranou reálnou fotku z odlovu
+                if (obj.foto_path) {
+                    popup += `
+                        <div style="margin-bottom: 8px; width: 100%; height: 130px; border-radius: 6px; overflow: hidden; border: 1px solid #363e38;">
+                            <img src="${obj.foto_path}" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                    `;
+                }
+
+                popup += `
+                        <!-- Tlačítka pro navigaci -->
+                        <div style="margin-bottom: 8px; display: flex; gap: 4px;">
+                            <a href="${gMapsCarUrl}" target="_blank" class="nav-btn nav-car">🚗 Autem</a>
+                            <a href="${gMapsWalkUrl}" target="_blank" class="nav-btn nav-walk">🚶 Pěšky</a>
+                        </div>
+                `;
+
+                if (obj.navstiveno) {
+                    popup += `
+                        <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid #4ade80; padding: 6px 8px; border-radius: 4px; margin-top: 6px;">
+                            <p style="color:#4ade80; font-weight:bold; margin:0 0 2px 0; font-size:0.8rem;">✅ Odloveno</p>
+                            ${obj.poznamka ? `<p style="margin:0; font-size:0.78rem; color:#e0e6e3;">💬 "${obj.poznamka}"</p>` : '<p style="margin:0; font-size:0.75rem; color:#94a3b8;">Bez poznámky</p>'}
+                        </div>
+                    `;
+                } else {
+                    popup += `<button onclick="openOdlovModal(${obj.id}, '${obj.nazev.replace(/'/g, "\\'")}')" style="background:#4f6d52; color:#fff; border:none; padding:7px; border-radius:4px; cursor:pointer; width:100%; font-weight:bold; margin-top: 4px;">Označit jako odlovené 🚩</button>`;
+                }
+
+                popup += `</div>`;
+                marker.bindPopup(popup);
+                markersGroup.addLayer(marker);
+            });
+
+            // Seznam vlevo
+            objekty.slice(0, 50).forEach(obj => {
+                const card = document.createElement('div');
+                card.className = `object-card ${obj.navstiveno ? 'visited' : ''}`;
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-weight:600; font-size:0.85rem;">${obj.nazev}</span>
+                        <span class="badge badge-${obj.typ}">${obj.typ}</span>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+                        <span>GPS: ${obj.lat.toFixed(3)}, ${obj.lon.toFixed(3)}</span>
+                        ${obj.navstiveno ? '<span style="color:var(--accent-green-bright); font-weight:bold;">✓ Odloveno</span>' : ''}
+                    </div>
+                `;
+                card.onclick = () => map.setView([obj.lat, obj.lon], 16);
+                listEl.appendChild(card);
+            });
+        }
+
+        // GPS Moje Poloha
+        function findMyLocation() {
+            if (!navigator.geolocation) {
+                alert('Geolokace není podporována.');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+
+                if (myLocationMarker) map.removeLayer(myLocationMarker);
+
+                myLocationMarker = L.circleMarker([lat, lon], {
+                    radius: 8,
+                    fillColor: '#3b82f6',
+                    color: '#fff',
+                    weight: 2,
+                    fillOpacity: 1
+                }).addTo(map);
+
+                myLocationMarker.bindPopup("<b>Tvoje aktuální poloha 📍</b>").openPopup();
+                map.setView([lat, lon], 14);
+            }, () => {
+                alert('Chyba při zjišťování polohy.');
+            });
+        }
+
+        // Modaly
+        function openAuthModal() { document.getElementById('auth-modal').style.display = 'flex'; }
+        function closeAuthModal() { document.getElementById('auth-modal').style.display = 'none'; }
+        function openOdlovModal(id, nazev) {
+            if (!isLoggedIn) { openAuthModal(); return; }
+            document.getElementById('odlov-id').value = id;
+            document.getElementById('odlov-title').textContent = `Odlovit: ${nazev}`;
+            document.getElementById('odlov-modal').style.display = 'flex';
+        }
+        function closeOdlovModal() { document.getElementById('odlov-modal').style.display = 'none'; }
+
+        function submitLogin() {
+            fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    jmeno: document.getElementById('auth-username').value,
+                    heslo: document.getElementById('auth-password').value
+                })
+            }).then(r => r.json()).then(d => {
+                if (d.success) { closeAuthModal(); checkStats(); loadObjekty(); }
+                else alert(d.error);
+            });
+        }
+
+        function submitRegister() {
+            fetch('/api/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    jmeno: document.getElementById('auth-username').value,
+                    heslo: document.getElementById('auth-password').value
+                })
+            }).then(r => r.json()).then(d => {
+                if (d.success) { closeAuthModal(); checkStats(); loadObjekty(); }
+                else alert(d.error);
+            });
+        }
+
+        function logout() { fetch('/api/logout', {method: 'POST'}).then(() => { checkStats(); loadObjekty(); }); }
+
+        function submitOdlov() {
+            const formData = new FormData();
+            formData.append('objekt_id', document.getElementById('odlov-id').value);
+            formData.append('poznamka', document.getElementById('odlov-poznamka').value);
+            const foto = document.getElementById('odlov-foto').files[0];
+            if (foto) formData.append('foto', foto);
+
+            fetch('/api/odlov', { method: 'POST', body: formData })
+                .then(r => r.json()).then(d => {
+                    if (d.success) { closeOdlovModal(); checkStats(); loadObjekty(); }
+                    else alert(d.error);
+                });
+        }
+
+        document.getElementById('search').addEventListener('input', aplikujFiltry);
+        document.getElementById('type-filter').addEventListener('change', aplikujFiltry);
+        document.getElementById('status-filter').addEventListener('change', aplikujFiltry);
+
+        checkStats();
+        loadObjekty();
+    </script>
+</body>
+</html>
