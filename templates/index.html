@@ -66,7 +66,6 @@
 
         .header h1 { font-size: 1.2rem; color: var(--accent-orange); letter-spacing: 1px; }
 
-        /* Vizuální úchytka pro tažení na mobilu */
         .drag-handle {
             display: none;
             width: 40px;
@@ -222,7 +221,6 @@
             border: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px;
         }
 
-        /* STYLY PRO MOBILY (VYSOUVACÍ PANEL "BOTTOM SHEET") */
         @media (max-width: 768px) {
             .app-container {
                 flex-direction: column;
@@ -247,24 +245,21 @@
                 border-top: 2px solid var(--border);
                 border-radius: 16px 16px 0 0;
                 z-index: 1000;
-                /* Výchozí stav: Zobrazená jen lišta/hlavička (cca 130px) */
                 height: 135px;
                 max-height: 90vh;
                 transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            /* Třída pro stav: Panel vyjetý napůl (např. při výběru objektu) */
             #sidebar.half-expanded {
                 height: 45vh !important;
             }
 
-            /* Třída pro stav: Panel plně vyjetý přes celou obrazovku */
             #sidebar.fully-expanded {
                 height: 88vh !important;
             }
 
             .drag-handle {
-                display: block; /* Zobrazíme lištičku pro vytažení */
+                display: block;
             }
 
             .header {
@@ -364,19 +359,28 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([49.8175, 15.4730], 6);
+        // Inicializace mapy bez natvrdo zadaného view
+        const map = L.map('map');
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
             maxZoom: 19
         }).addTo(map);
 
+        // Hranice České republiky pro fitBounds
+        const czechBounds = L.latLngBounds(
+            L.latLng(48.55, 12.09), // Jihozápadní roh
+            L.latLng(51.06, 18.86)  // Severovýchodní roh
+        );
+
+        // Napasujeme mapu přesně na hranice ČR
+        map.fitBounds(czechBounds, { padding: [15, 15] });
+
         const markersGroup = L.featureGroup().addTo(map);
         let vsechnyObjekty = [];
         let isLoggedIn = false;
         let myLocationMarker = null;
 
-        /* LOGIKA PRO VYSOUVACÍ PANEL NA MOBILU */
         const sidebar = document.getElementById('sidebar');
 
         function toggleSidebar() {
@@ -404,8 +408,11 @@
             }
         }
 
+        // Dynamický přepočet velikosti a zarovnání mapy
         function refreshMapSize() {
-            setTimeout(() => { map.invalidateSize(); }, 350);
+            setTimeout(() => { 
+                map.invalidateSize();
+            }, 350);
         }
 
         window.addEventListener('load', refreshMapSize);
@@ -545,9 +552,7 @@
                 popup += `</div>`;
                 marker.bindPopup(popup);
 
-                // Po kliknutí na bod přímo v mapě sjedeme s panelem dolů
                 marker.on('click', collapseSidebarToHalf);
-
                 markersGroup.addLayer(marker);
             });
 
@@ -566,7 +571,6 @@
                 `;
                 card.onclick = () => {
                     map.setView([obj.lat, obj.lon], 16);
-                    // Při kliknutí na kartičku z vyjetého menu sjedeme napůl, aby šla vidět mapa i objekt
                     collapseSidebarToHalf();
                 };
                 listEl.appendChild(card);
@@ -594,8 +598,6 @@
 
                 myLocationMarker.bindPopup("<b>Tvoje aktuální poloha 📍</b>").openPopup();
                 map.setView([lat, lon], 14);
-
-                // Při zjištění polohy zasuneme menu napůl
                 collapseSidebarToHalf();
             }, () => {
                 alert('Chyba při zjišťování polohy.');
