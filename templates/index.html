@@ -216,43 +216,26 @@
         }
 
         /* RESPONSIVE DESIGN - MOBILNÍ ZAŘÍZENÍ */
-        @media (max-width: 768px) {
-            .app-container {
-                flex-direction: column-reverse; /* Panel spadne dolů pod mapu */
-            }
+    @media (max-width: 768px) {
+    .app-container {
+        flex-direction: column-reverse;
+    }
 
-            #sidebar {
-                width: 100% !important;
-                height: 45vh; /* Panel zabere 45 % spodní výšky displeje */
-                border-right: none;
-                border-top: 2px solid var(--border);
-                box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
-            }
+    #sidebar {
+        width: 100% !important;
+        height: 50vh !important; /* Panel zabere přesně polovinu displeje */
+        max-height: 50vh;
+        overflow-y: auto !important; /* POVOLÍ SCROLOVÁNÍ PRSTEM */
+        -webkit-overflow-scrolling: touch; /* Hladké scrolování pro iOS/Safari */
+        border-right: none;
+        border-top: 2px solid var(--border);
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+    }
 
-            #map {
-                height: 55vh; /* Mapa zabere horních 55 % displeje */
-            }
-
-            .user-stats {
-                padding: 6px 15px;
-            }
-
-            .controls {
-                padding: 8px 15px;
-            }
-
-            .tab-content {
-                padding: 10px 15px;
-            }
-
-            /* Zvětšení dotykových prvků pro prsty na mobilu */
-            .leaflet-touch .leaflet-bar a {
-                width: 38px !important;
-                height: 38px !important;
-                line-height: 38px !important;
-                font-size: 1.2rem;
-            }
-        }
+    #map {
+        height: 50vh !important; /* Druhá polovina pro mapu */
+    }
+}    
     </style>
 </head>
 <body>
@@ -342,7 +325,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([49.8, 15.5], 8);
+        const map = L.map('map').setView([49.8175, 15.4730], 7);
 
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap &copy; CARTO',
