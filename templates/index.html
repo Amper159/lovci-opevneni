@@ -34,12 +34,12 @@
             color: var(--text-light);
         }
 
-        /* Hlavní obalový kontejner */
         .app-container {
             display: flex;
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            position: relative;
         }
 
         #sidebar {
@@ -51,6 +51,7 @@
             z-index: 1000;
             box-shadow: 4px 0 20px rgba(0,0,0,0.6);
             flex-shrink: 0;
+            transition: transform 0.3s ease-in-out, height 0.3s ease-in-out;
         }
 
         .header {
@@ -60,11 +61,22 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            cursor: pointer;
         }
 
         .header h1 { font-size: 1.2rem; color: var(--accent-orange); letter-spacing: 1px; }
 
-        /* Záložky (Seznam / Žebříček) */
+        /* Vizuální úchytka pro tažení na mobilu */
+        .drag-handle {
+            display: none;
+            width: 40px;
+            height: 5px;
+            background: var(--text-muted);
+            border-radius: 3px;
+            margin: 6px auto 2px auto;
+            opacity: 0.5;
+        }
+
         .tabs {
             display: flex;
             background: #171b19;
@@ -153,7 +165,6 @@
         .badge-srub { background-color: #8c3a3a; color: #fff; }
         .badge-tvrz { background-color: var(--accent-orange); color: #fff; }
 
-        /* Žebříček */
         .leader-item {
             display: flex;
             justify-content: space-between;
@@ -176,7 +187,6 @@
             z-index: 1;
         }
 
-        /* Styly pro popup okno Leafletu */
         .leaflet-popup-content-wrapper {
             background: #1e2321 !important;
             color: #e0e6e3 !important;
@@ -198,14 +208,11 @@
             text-decoration: none;
             border-radius: 4px;
             font-weight: 600;
-            transition: opacity 0.2s;
         }
 
-        .nav-btn:hover { opacity: 0.85; }
         .nav-car { background-color: #2563eb; }
         .nav-walk { background-color: #16a34a; }
 
-        /* Modal */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.75); z-index: 2000; justify-content: center; align-items: center;
@@ -215,37 +222,74 @@
             border: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px;
         }
 
-        /* RESPONSIVE DESIGN - MOBILNÍ ZAŘÍZENÍ */
-    @media (max-width: 768px) {
-    .app-container {
-        flex-direction: column-reverse;
-    }
+        /* STYLY PRO MOBILY (VYSOUVACÍ PANEL "BOTTOM SHEET") */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
 
-    #sidebar {
-        width: 100% !important;
-        height: 50vh !important; /* Panel zabere přesně polovinu displeje */
-        max-height: 50vh;
-        overflow-y: auto !important; /* POVOLÍ SCROLOVÁNÍ PRSTEM */
-        -webkit-overflow-scrolling: touch; /* Hladké scrolování pro iOS/Safari */
-        border-right: none;
-        border-top: 2px solid var(--border);
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
-    }
+            #map {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 1;
+            }
 
-    #map {
-        height: 50vh !important; /* Druhá polovina pro mapu */
-    }
-}    
+            #sidebar {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100% !important;
+                background-color: var(--panel-bg);
+                border-right: none;
+                border-top: 2px solid var(--border);
+                border-radius: 16px 16px 0 0;
+                z-index: 1000;
+                /* Výchozí stav: Zobrazená jen lišta/hlavička (cca 130px) */
+                height: 135px;
+                max-height: 90vh;
+                transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            /* Třída pro stav: Panel vyjetý napůl (např. při výběru objektu) */
+            #sidebar.half-expanded {
+                height: 45vh !important;
+            }
+
+            /* Třída pro stav: Panel plně vyjetý přes celou obrazovku */
+            #sidebar.fully-expanded {
+                height: 88vh !important;
+            }
+
+            .drag-handle {
+                display: block; /* Zobrazíme lištičku pro vytažení */
+            }
+
+            .header {
+                padding: 5px 20px 12px 20px;
+            }
+
+            .leaflet-touch .leaflet-bar a {
+                width: 38px !important;
+                height: 38px !important;
+                line-height: 38px !important;
+            }
+        }
     </style>
 </head>
 <body>
 
     <div class="app-container">
+        <div id="map"></div>
+
         <div id="sidebar">
-            <div class="header">
+            <div class="drag-handle" onclick="toggleSidebar()"></div>
+            <div class="header" onclick="toggleSidebar()">
                 <h1>🛡️ LOVCI OPEVNĚNÍ</h1>
                 <div id="auth-status" style="font-size: 0.8rem;">
-                    <a href="#" onclick="openAuthModal()" style="color: var(--accent-orange);">Přihlásit</a>
+                    <a href="#" onclick="openAuthModal(); event.stopPropagation();" style="color: var(--accent-orange);">Přihlásit</a>
                 </div>
             </div>
 
@@ -265,9 +309,8 @@
                 <button class="tab-btn" onclick="switchTab('leaderboard')">🏆 Žebříček</button>
             </div>
 
-            <!-- TAB OBJEKTY -->
             <div class="controls" id="objects-controls">
-                <input type="text" id="search" placeholder="Hledat (Signál, MO-S...)...">
+                <input type="text" id="search" placeholder="Hledat (Signál, MO-S...)..." onfocus="expandSidebarFull()">
                 <div style="display: flex; gap: 5px;">
                     <select id="type-filter">
                         <option value="all">Všechny typy</option>
@@ -288,16 +331,13 @@
 
             <div class="tab-content active" id="tab-objects"></div>
 
-            <!-- TAB ŽEBŘÍČEK -->
             <div class="tab-content" id="tab-leaderboard">
                 <div id="leaderboard-list">Načítám žebříček...</div>
             </div>
         </div>
-
-        <div id="map"></div>
     </div>
 
-    <!-- AUTH MODAL -->
+    <!-- MODALY -->
     <div class="modal" id="auth-modal">
         <div class="modal-content">
             <h3 style="color: var(--accent-orange);">Přihlášení Lovce</h3>
@@ -309,7 +349,6 @@
         </div>
     </div>
 
-    <!-- ODLOV MODAL -->
     <div class="modal" id="odlov-modal">
         <div class="modal-content">
             <h3 id="odlov-title" style="color: var(--accent-orange);">Odlovit objekt</h3>
@@ -337,11 +376,36 @@
         let isLoggedIn = false;
         let myLocationMarker = null;
 
-        // Vynucený přepočet velikosti Leaflet mapy pro mobily
+        /* LOGIKA PRO VYSOUVACÍ PANEL NA MOBILU */
+        const sidebar = document.getElementById('sidebar');
+
+        function toggleSidebar() {
+            if (window.innerWidth > 768) return;
+            if (sidebar.classList.contains('fully-expanded')) {
+                sidebar.classList.remove('fully-expanded');
+                sidebar.classList.remove('half-expanded');
+            } else {
+                sidebar.classList.add('fully-expanded');
+            }
+            refreshMapSize();
+        }
+
+        function expandSidebarFull() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('half-expanded');
+                sidebar.classList.add('fully-expanded');
+            }
+        }
+
+        function collapseSidebarToHalf() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('fully-expanded');
+                sidebar.classList.add('half-expanded');
+            }
+        }
+
         function refreshMapSize() {
-            setTimeout(() => {
-                map.invalidateSize();
-            }, 300);
+            setTimeout(() => { map.invalidateSize(); }, 350);
         }
 
         window.addEventListener('load', refreshMapSize);
@@ -369,11 +433,11 @@
                 .then(data => {
                     isLoggedIn = data.logged_in;
                     if (data.logged_in) {
-                        document.getElementById('auth-status').innerHTML = `${data.jmeno} (<a href="#" onclick="logout()" style="color:#ef4444;">Odhlaš</a>)`;
+                        document.getElementById('auth-status').innerHTML = `${data.jmeno} (<a href="#" onclick="logout(); event.stopPropagation();" style="color:#ef4444;">Odhlaš</a>)`;
                         document.getElementById('user-score').textContent = data.odloveno;
                         document.getElementById('user-rank').textContent = data.hodnost;
                     } else {
-                        document.getElementById('auth-status').innerHTML = `<a href="#" onclick="openAuthModal()" style="color: var(--accent-orange);">Přihlásit</a>`;
+                        document.getElementById('auth-status').innerHTML = `<a href="#" onclick="openAuthModal(); event.stopPropagation();" style="color: var(--accent-orange);">Přihlásit</a>`;
                         document.getElementById('user-score').textContent = '0';
                         document.getElementById('user-rank').textContent = 'Vojín';
                     }
@@ -480,6 +544,10 @@
 
                 popup += `</div>`;
                 marker.bindPopup(popup);
+
+                // Po kliknutí na bod přímo v mapě sjedeme s panelem dolů
+                marker.on('click', collapseSidebarToHalf);
+
                 markersGroup.addLayer(marker);
             });
 
@@ -498,10 +566,8 @@
                 `;
                 card.onclick = () => {
                     map.setView([obj.lat, obj.lon], 16);
-                    // Na mobilu po kliknutí na objekt posuneme pohled na mapu
-                    if (window.innerWidth <= 768) {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
+                    // Při kliknutí na kartičku z vyjetého menu sjedeme napůl, aby šla vidět mapa i objekt
+                    collapseSidebarToHalf();
                 };
                 listEl.appendChild(card);
             });
@@ -528,6 +594,9 @@
 
                 myLocationMarker.bindPopup("<b>Tvoje aktuální poloha 📍</b>").openPopup();
                 map.setView([lat, lon], 14);
+
+                // Při zjištění polohy zasuneme menu napůl
+                collapseSidebarToHalf();
             }, () => {
                 alert('Chyba při zjišťování polohy.');
             });
